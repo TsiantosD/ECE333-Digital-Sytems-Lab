@@ -15,7 +15,7 @@ module LEDdecoder_tb;
     always #5 clk = ~clk;
 
     initial begin
-        $dumpfile("waveforms.vcd");
+        $dumpfile("LEDdecoder_tb.vcd");
         $dumpvars(0, clk, rst, char, LED);
 
         for (integer i = 0; i < 16; i = i + 1) begin

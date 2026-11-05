@@ -16,7 +16,7 @@ BUILD     := .
 SIM       := $(BUILD)/$(TB).vvp
 
 # Must match $dumpfile(...) in the testbench
-VCD       := waveforms.vcd
+VCD       := LEDdecoder_tb.vcd
 
 IVERILOG  := iverilog
 VVP       := vvp

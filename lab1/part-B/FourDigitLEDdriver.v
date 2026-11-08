@@ -10,7 +10,18 @@ module FourDigitLEDdriver (
     wire slow_clk;
     wire clkfb;
     wire locked; // high when slow clock is ready
-    wire rst_int = reset | ~locked;
+    wire reset_db;
+    wire rst_int = reset_db | ~locked;
+
+    // Synchronize and debounce reset
+    ResetDebounce #(
+        .DEBOUNCE_TIME_MS(20),
+        .CLK_FREQ_HZ     (100_000_000)
+     ) resetDebounce (
+        .clk    (clk),
+        .rst_in (reset),
+        .rst_out(reset_db)
+    );
 
     MMCME2_BASE #(
         .CLKIN1_PERIOD   (10.0), // 100MHz input
@@ -23,7 +34,7 @@ module FourDigitLEDdriver (
         .CLKFBOUT (clkfb), // feedback: CLKFBOUT -> CLKFBIN
         .CLKOUT1  (slow_clk),
         .LOCKED   (locked),
-        .RST      (reset),
+        .RST      (reset_db),
         .PWRDWN   (1'b0),
         // unused
         .CLKOUT0(), .CLKOUT0B(), .CLKOUT1B(), .CLKOUT2(), .CLKOUT2B(),

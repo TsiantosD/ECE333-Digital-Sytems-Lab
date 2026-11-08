@@ -56,6 +56,8 @@ module FourDigitLEDdriver (
     end
 
     always @(*) begin
+        char = 4'h0;
+
         case (counter[3:2])
             2'b11: char = 4'h0;   // AN3
             2'b10: char = 4'h1;   // AN2

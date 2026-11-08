@@ -5,6 +5,7 @@ module LEDdecoder_tb;
     reg rst;
     reg [3:0] char;
     wire [6:0] LED;
+    integer i;
 
     initial begin
         clk = 1'b0;
@@ -18,7 +19,7 @@ module LEDdecoder_tb;
         $dumpfile("LEDdecoder_tb.vcd");
         $dumpvars(0, clk, rst, char, LED);
 
-        for (integer i = 0; i < 16; i = i + 1) begin
+        for (i = 0; i < 16; i = i + 1) begin
             #10 char = i[3:0];
         end
 

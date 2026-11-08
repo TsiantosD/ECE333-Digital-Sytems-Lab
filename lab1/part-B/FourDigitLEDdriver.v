@@ -47,26 +47,21 @@ module FourDigitLEDdriver (
         anode_oc_mask = 4'b1111;
 
         case (counter)
-            4'b1110: begin
-                anode_oc_mask = 4'b0111;
-                char = 4'h0;
-            end
-            4'b1010: begin
-                anode_oc_mask = 4'b1011;
-                char = 4'h1;
-            end
-            4'b0110: begin
-                anode_oc_mask = 4'b1101;
-                char = 4'h2;
-            end
-            4'b0010: begin
-                anode_oc_mask = 4'b1110;
-                char = 4'h3;
-            end
-            default: begin
-                anode_oc_mask = 4'b1111;
-                char = 4'h0;
-            end
+            4'b1110: anode_oc_mask = 4'b0111;
+            4'b1010: anode_oc_mask = 4'b1011;
+            4'b0110: anode_oc_mask = 4'b1101;
+            4'b0010: anode_oc_mask = 4'b1110;
+            default: anode_oc_mask = 4'b1111;
+        endcase
+    end
+
+    always @(*) begin
+        case (counter[3:2])
+            2'b11: char = 4'h0;   // AN3
+            2'b10: char = 4'h1;   // AN2
+            2'b01: char = 4'h2;   // AN1
+            2'b00: char = 4'h3;   // AN0
+            default: char = 4'h0;
         endcase
     end
 

@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module Debounce #(
+    parameter DEBOUNCE_TIME_MS = 20,
+    parameter CLK_FREQ_HZ = 100_000_000
+) (
+    input clk,
+    input rst,
+    input in,
+    output reg out = 1'b0
+);
+    // Calculate counter value for debounce time
+    localparam COUNTER_MAX = (CLK_FREQ_HZ / 1000) * DEBOUNCE_TIME_MS;
+    localparam COUNTER_WIDTH = $clog2(COUNTER_MAX + 1);
+
+    reg [COUNTER_WIDTH-1:0] counter = 1'b0;
+
+    (* ASYNC_REG = "TRUE" *) reg sync_0 = 1'b0, sync_1 = 1'b0;
+
+    // Two flip-flop synchronizer
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            sync_0 <= 1'b0;
+            sync_1 <= 1'b0;
+        end else begin
+            sync_0 <= in;
+            sync_1 <= sync_0;
+        end
+    end
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            counter <= 0;
+            out <= 1'b0;
+        end else if (sync_1 != out) begin
+            // Input is different than output, keep counting
+            counter <= counter + 1;
+            if (counter >= COUNTER_MAX) begin
+                out <= sync_1;
+                counter <= 0;
+            end
+        end else begin
+            counter <= 0;
+        end
+    end
+endmodule

@@ -6,15 +6,15 @@ module ResetDebounce #(
 ) (
     input clk,
     input rst_in,
-    output reg rst_out
+    output reg rst_out = 1'b0
 );
     // Calculate counter value for debounce time
     localparam COUNTER_MAX = (CLK_FREQ_HZ / 1000) * DEBOUNCE_TIME_MS;
     localparam COUNTER_WIDTH = $clog2(COUNTER_MAX + 1);
 
-    reg [COUNTER_WIDTH-1:0] counter;
+    reg [COUNTER_WIDTH-1:0] counter = 1'b0;
 
-    reg sync_0, sync_1;
+    (* ASYNC_REG = "TRUE" *) reg sync_0 = 1'b0, sync_1 = 1'b0;
 
     // Two flip-flop synchronizer
     always @(posedge clk) begin

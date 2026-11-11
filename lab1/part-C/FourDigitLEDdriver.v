@@ -1,5 +1,7 @@
 `timescale 1ns/1ps
 
+`include "constants.vh"
+
 module FourDigitLEDdriver #(
     parameter N = 16,
     parameter [4*N-1:0] MESSAGE = 64'h0123456789ABCDEF,
@@ -10,8 +12,6 @@ module FourDigitLEDdriver #(
     output an3, an2, an1, an0,
     output a, b, c, d, e, f, g, dp
 );
-    `include "constants.vh"
-
     localparam MMCM_MULT = 6;   // 100MHz * 6 = 600MHz
     localparam MMCM_DIV = 120;  // 600MHz / 120 = 5MHz -> 200ns
     localparam SLOW_CLK_FREQ_HZ = CLK_FREQ_HZ * MMCM_MULT / MMCM_DIV;

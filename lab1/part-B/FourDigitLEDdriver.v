@@ -1,12 +1,12 @@
 `timescale 1ns/1ps
 
+`include "constants.vh"
+
 module FourDigitLEDdriver (
     input clk, reset,
     output an3, an2, an1, an0,
     output a, b, c, d, e, f, g, dp
 );
-    `include "constants.vh"
-
     wire slow_clk;
     wire clkfb;
     wire locked; // high when slow clock is ready

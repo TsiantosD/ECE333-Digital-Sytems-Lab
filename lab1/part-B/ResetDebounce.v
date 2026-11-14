@@ -23,7 +23,7 @@ module ResetDebounce #(
     end
 
     always @(posedge clk) begin
-        if (sync_1 != sync_1) begin
+        if (sync_1 != rst_out) begin
             // Input is different than output, keep counting
             counter <= counter + 1;
             if (counter >= COUNTER_MAX) begin

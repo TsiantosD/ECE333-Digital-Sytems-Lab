@@ -1,0 +1,180 @@
+\documentclass{article}
+
+\title{Digital Systems Lab \\ \textlatin{\textbf{Project 1 \\ 7-Segment Display Driver}}}
+\date{November 2026}
+
+\author{
+  \IfFileExists{UTH_greek_logo.png}{\includegraphics[width=0.2\linewidth]{UTH_greek_logo.png} \\ \vspace*{0.3in}}{}%
+  \begin{tabular}{c}\textbf{Tsiantos Dimitrios} \\
+  \texttt{\textlatin{dtsiantos@uth.gr}} \\
+    3796 \\
+  \end{tabular} \\
+}
+
+\usepackage[letterpaper, top=2cm, bottom=2cm, left=3cm, right=3cm, marginparwidth=1.75cm]{geometry}
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{tikz}
+\usepackage{colortbl}
+\usepackage{mathtools}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{rotating}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage{placeins}
+\usepackage{url}
+
+\usepackage{babel}
+\babelprovide[import]{greek}
+\babelprovide[import]{english}
+\usepackage{fontspec}
+\setmainfont{Libertinus Serif}
+\setsansfont{Libertinus Sans}
+
+% CODE LISTINGS
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+% END CODE LISTINGS
+
+\begin{document}
+
+\maketitle
+\clearpage
+
+\tableofcontents
+\clearpage
+
+\section{Part A: Decoder}
+\subsection{The module}
+The \texttt{LEDdecoder} module receives an input of four bits named \texttt{char}
+and outputs a signal \texttt{LED} of seven bits, each corresponding to a cathode
+of a 7-Segment Display.
+
+This module is combinational, meaning it does not use
+any memory elements and the output only depends on the current input. This
+can be implemented in Verilog using a combinational \texttt{always} block; that
+is an \texttt{always} block whose sensitivity list doesn't contain the clock signal.
+
+Depending of the value of \texttt{char}, the \texttt{case} statement combinationally
+assigns the seven bit constant of the right hand side to the \texttt{LED} signal.
+
+\lstinputlisting[language=Verilog]{LEDdecoder.v}
+
+\subsection{Include directive}
+The \texttt{`include} directive inserts the contents of the given file in place,
+before compilation~\cite{ieee1364}. Vivado searches for included files in the
+directory of the including source and in the include search paths of the
+project~\cite{ug901}. The constants are therefore defined as \texttt{`define}
+macros with an include guard, so that the header can be included by several
+modules without redefinition.
+
+\lstinputlisting[language=Verilog]{constants.vh}
+
+\subsection{Case statement}
+Since we have an input of four bits, we can only index $2^4 = 16$ different characters.
+The \texttt{default} case should never be reached since all cases are covered
+~\cite[Case Statements]{ug901}, but it is a good idea to use a default in the event
+some case is accidentally forgotten later.
+
+\subsection{Sensitivity list}
+The sensitivity list only contains the input \texttt{char}, which, in this case, is equivalent
+to using the "star" operator (\texttt{always @(*)}).
+
+\subsection{Timescale}
+The \texttt{`timescale} directive has the form
+\texttt{`timescale} \texttt{<time\_unit>}\texttt{/}\texttt{<time\_precision>}, in this case \texttt{1ns/1ps}.
+The time unit is the unit of all delays in the module (so \texttt{\#5} means
+\SI{5}{\nano\second}), while the time precision is the smallest step to which
+delays are rounded. It only affects simulation and is ignored by synthesis.
+The Vivado simulator runs with the finest precision specified among all source
+files of the design~\cite{ug900}. The same timescale is used in all verilog files
+in this project.
+
+\section{Part B: Four Digits Driver}
+\subsection{MMCM Instantiation}
+
+The board provides a \SI{100}{\mega\hertz} clock (period \SI{10}{\nano\second}),
+while the anode and segment signals must stay stable for much longer, because
+of the large capacitance of the LED circuit. Instead of dividing the clock with
+a counter in the fabric, we use a Mixed-Mode Clock Manager (MMCM), a dedicated
+clock management block of the 7~Series devices~\cite{ug472}. The MMCM produces
+a new, slower clock with a fixed relationship to the input clock. All the sequential
+logic of the driver then runs on this clock, and its outputs change once per clock cycle.
+
+We instantiate the \texttt{MMCME2\_BASE} primitive and use the following
+ports~\cite{ug472}:
+\begin{description}
+  \item[\texttt{CLKIN1}] The input clock, here the \SI{100}{\mega\hertz} board clock.
+  \item[\texttt{CLKFBOUT}, \texttt{CLKFBIN}] The feedback loop. \texttt{CLKFBOUT}
+        is connected to \texttt{CLKFBIN}, so that the MMCM can compare the
+        feedback clock with the input clock and lock its internal oscillator (VCO).
+  \item[\texttt{CLKOUT1}] The output clock used by our design.
+  \item[\texttt{LOCKED}] Goes high when the output clocks are stable. Until then
+        the design is held in reset (\texttt{rst\_int = reset\_db | \textasciitilde locked}).
+  \item[\texttt{RST}] Asynchronous reset of the MMCM, driven by the debounced reset button.
+  \item[\texttt{PWRDWN}] Powers down the MMCM; tied to 0.
+\end{description}
+The remaining outputs (\texttt{CLKOUT0}, \texttt{CLKOUT2}--\texttt{CLKOUT6}
+and the inverted outputs) are left unconnected.
+
+The MMCM first multiplies the input frequency to drive its VCO and then divides
+the VCO frequency separately for each output~\cite{ug472}:
+\begin{equation}
+  f_{VCO} = f_{IN} \cdot \frac{M}{D}, \qquad
+  f_{OUT} = \frac{f_{VCO}}{O}
+\end{equation}
+where $M$ = \texttt{CLKFBOUT\_MULT\_F}, $D$ = \texttt{DIVCLK\_DIVIDE} and
+$O$ = \texttt{CLKOUT1\_DIVIDE}. The VCO frequency must lie within the range of
+the device (\SIrange{600}{1200}{\mega\hertz} for speed grade $-1$~\cite{ds189}),
+so the clock cannot be divided by 20 directly. We choose $M = 6$, $D = 1$ and
+$O = 120$:
+\begin{equation}
+  f_{VCO} = \SI{100}{\mega\hertz} \cdot \frac{6}{1} = \SI{600}{\mega\hertz},
+  \qquad
+  f_{OUT} = \frac{\SI{600}{\mega\hertz}}{120} = \SI{5}{\mega\hertz}
+  \;\Rightarrow\; T_{OUT} = \SI{200}{\nano\second}.
+\end{equation}
+\texttt{CLKIN1\_PERIOD} is set to \SI{10.0}{\nano\second} to inform the tools
+of the input clock period.
+
+
+\section{Part C: Message Rotation Using a Button}
+\section{Part D: Message Rotation Using a Delay}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

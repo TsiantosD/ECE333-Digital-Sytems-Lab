@@ -96,7 +96,6 @@ module FourDigitLEDdriver #(
     end
 
     reg [PTR_W-1:0] ptr;
-    reg step_pending;
 
     wire frame_end = (counter == 4'b0000);
     wire [PTR_W-1:0] next_ptr = (ptr == N - 1) ? {PTR_W{1'b0}} : ptr + 1'b1;
@@ -104,12 +103,8 @@ module FourDigitLEDdriver #(
     always @(posedge slow_clk or posedge rst_int) begin
         if (rst_int) begin
             ptr <= {PTR_W{1'b0}};
-            step_pending <= 1'b0;
-        end else if (frame_end && (delay_done || step_pending)) begin
+        end else if (frame_end && delay_done) begin
             ptr <= next_ptr;
-            step_pending <= 1'b0;
-        end else if (delay_done) begin
-            step_pending <= 1'b1;
         end
     end
 

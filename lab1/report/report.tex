@@ -130,7 +130,7 @@ Depending of the value of \texttt{char}, the \texttt{case} statement combination
 assigns the seven bit constant of the right hand side to the \texttt{LED} signal
 (Listing~\ref{lst:decoder}).
 
-\lstinputlisting[language=Verilog, caption={The \texttt{LEDdecoder} module.}, label={lst:decoder}]{LEDdecoder.v}
+\lstinputlisting[language=Verilog, caption={The \texttt{LEDdecoder} module.}, label={lst:decoder}]{code/LEDdecoder.v}
 
 \subsection{Include directive}
 The \texttt{`include} directive inserts the contents of the given file in place,
@@ -141,7 +141,7 @@ macros with an include guard, so that the header can be included by several
 modules without redefinition. Both \texttt{`define} and \texttt{`include}, as
 well as \texttt{`ifndef}, are supported by Vivado synthesis~\cite[Table~23: Verilog Constructs]{ug901}.
 
-\lstinputlisting[language=Verilog, caption={The 7-segment patterns (\texttt{constants.vh}, abridged).}, label={lst:constants}]{constants.vh}
+\lstinputlisting[language=Verilog, caption={The 7-segment patterns (\texttt{constants.vh}, abridged).}, label={lst:constants}]{code/constants.vh}
 
 \subsection{Case statement}
 Since we have an input of four bits, we can only index $2^4 = 16$ different characters.
@@ -228,7 +228,7 @@ Guide~\cite[Ch.~1: Introduction]{ug953}; the Spartan-7 device of the board belon
 7~Series family as the Artix-7. A primitive is instantiated like any other
 Verilog module~\cite[Instantiating Pre-Defined Primitives]{ug901}.
 
-\lstinputlisting[language=Verilog, caption={Instantiation of the \texttt{MMCME2\_BASE} primitive.}, label={lst:mmcm}]{MMCM.v}
+\lstinputlisting[language=Verilog, caption={Instantiation of the \texttt{MMCME2\_BASE} primitive.}, label={lst:mmcm}]{code/MMCM.v}
 
 We instantiate the \texttt{MMCME2\_BASE} primitive (Listing~\ref{lst:mmcm}) and use the following
 ports~\cite[Table~3-1: MMCME2\_BASE Ports]{ug472}, \cite[MMCME2\_BASE]{ug953}:

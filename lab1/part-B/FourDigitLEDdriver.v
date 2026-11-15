@@ -41,13 +41,22 @@ module FourDigitLEDdriver (
         .CLKOUT3(), .CLKOUT3B(), .CLKOUT4(), .CLKOUT5(), .CLKOUT6(), .CLKFBOUTB()
     );
 
+    // Activated asynchronously, released synchronously to slow_clk
+    wire rst_slow;
+
+    ResetSync resetSync (
+        .clk    (slow_clk),
+        .rst_in (rst_int),
+        .rst_out(rst_slow)
+    );
+
     wire [6:0] LED;
     reg [3:0] char;
     reg [3:0] anode_oc_mask;
     reg [3:0] counter;
 
-    always @(posedge slow_clk or posedge rst_int) begin
-        if (rst_int) begin
+    always @(posedge slow_clk or posedge rst_slow) begin
+        if (rst_slow) begin
             counter <= 4'b1111;
         end else begin
             counter <= counter - 4'b0001;

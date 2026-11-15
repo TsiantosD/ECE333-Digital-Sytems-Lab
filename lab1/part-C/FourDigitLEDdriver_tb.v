@@ -13,6 +13,12 @@ module FourDigitLEDdriver_tb;
     localparam PRESS_NS = 15_000;   // button held down (> debounce time)
     localparam GAP_NS   = 15_000;   // button released, before the next press
 
+    // step_btn changes only on multiples of 200 ns, which in the simulation are
+    // about 100 ns away from the rising edges of slow_clk. In a timing
+    // simulation an input that changes right at a clock edge violates the
+    // setup/hold check of the first synchronizer flip-flop, whose model then
+    // outputs x (on the board the flip-flop simply settles to 0 or 1).
+
     reg clk = 1'b0;
     reg reset = 1'b0;
     reg step_btn = 1'b0;
@@ -21,12 +27,20 @@ module FourDigitLEDdriver_tb;
 
     always #5 clk = ~clk;   // 100 MHz
 
+    // The parameters of a synthesized or implemented netlist are fixed, so
+    // they cannot be overridden here. For post-synthesis/post-implementation
+    // simulation, define POST_SYNTH and synthesize the design with the same
+    // values as generics (DEBOUNCE_TIME_MS=1 CLK_FREQ_HZ=400000).
+`ifdef POST_SYNTH
+    FourDigitLEDdriver fourDigitLEDdriver (
+`else
     FourDigitLEDdriver #(
         .N               (N),
         .MESSAGE         (MESSAGE),
         .DEBOUNCE_TIME_MS(DEBOUNCE_TIME_MS),
         .CLK_FREQ_HZ     (CLK_FREQ_HZ)
     ) fourDigitLEDdriver (
+`endif
         .clk     (clk),
         .reset   (reset),
         .step_btn(step_btn),

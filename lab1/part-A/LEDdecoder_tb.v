@@ -20,18 +20,14 @@ module LEDdecoder_tb;
         $dumpvars(0, clk, rst, char, LED);
 
         for (i = 0; i < 16; i = i + 1) begin
-            #10 char = i[3:0];
+            char = i[3:0]; #10;
         end
 
-        #10 $finish;
+        $finish;
     end
 
     LEDdecoder led_decoder (
         .char(char),
         .LED (LED)
     );
-
-    always @(*) begin
-        $display("char: %b LED: %b", char, LED);
-    end
 endmodule

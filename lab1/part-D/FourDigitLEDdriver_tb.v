@@ -22,6 +22,13 @@ module FourDigitLEDdriver_tb;
 
     always #5 clk = ~clk;   // 100 MHz
 
+    // The parameters of a synthesized or implemented netlist are fixed, so
+    // they cannot be overridden here. For post-synthesis/post-implementation
+    // simulation, define POST_SYNTH and synthesize the design with the same
+    // values as generics (DELAY_W=7 DEBOUNCE_TIME_MS=1 CLK_FREQ_HZ=400000).
+`ifdef POST_SYNTH
+    FourDigitLEDdriver fourDigitLEDdriver (
+`else
     FourDigitLEDdriver #(
         .N               (N),
         .MESSAGE         (MESSAGE),
@@ -29,6 +36,7 @@ module FourDigitLEDdriver_tb;
         .DEBOUNCE_TIME_MS(DEBOUNCE_TIME_MS),
         .CLK_FREQ_HZ     (CLK_FREQ_HZ)
     ) fourDigitLEDdriver (
+`endif
         .clk  (clk),
         .reset(reset),
         .an3  (an3),

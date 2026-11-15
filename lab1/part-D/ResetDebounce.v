@@ -12,8 +12,6 @@ module ResetDebounce #(
     localparam COUNTER_MAX = (CLK_FREQ_HZ / 1000) * DEBOUNCE_TIME_MS;
     localparam COUNTER_WIDTH = $clog2(COUNTER_MAX + 1);
 
-    // No reset here: this module produces the reset, so every register gets
-    // an initial value instead (loaded when the FPGA is configured)
     reg [COUNTER_WIDTH-1:0] counter = 0;
 
     (* ASYNC_REG = "TRUE" *) reg sync_0 = 1'b0, sync_1 = 1'b0;

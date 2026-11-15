@@ -51,6 +51,15 @@ module FourDigitLEDdriver #(
         .CLKOUT3(), .CLKOUT3B(), .CLKOUT4(), .CLKOUT5(), .CLKOUT6(), .CLKFBOUTB()
     );
 
+    // Activated asynchronously, released synchronously to slow_clk
+    wire rst_slow;
+
+    ResetSync resetSync (
+        .clk    (slow_clk),
+        .rst_in (rst_int),
+        .rst_out(rst_slow)
+    );
+
     // Message memory, built from registers and initialized from MESSAGE
     reg [3:0] message [0:N-1];
     integer i;
@@ -64,8 +73,8 @@ module FourDigitLEDdriver #(
     reg [3:0] anode_oc_mask;
     reg [3:0] counter;
 
-    always @(posedge slow_clk or posedge rst_int) begin
-        if (rst_int) begin
+    always @(posedge slow_clk or posedge rst_slow) begin
+        if (rst_slow) begin
             counter <= 4'b1111;
         end else begin
             counter <= counter - 4'b0001;
@@ -87,8 +96,8 @@ module FourDigitLEDdriver #(
     reg [DELAY_W-1:0] delay_cnt;
     wire delay_done = (delay_cnt == {DELAY_W{1'b0}});
 
-    always @(posedge slow_clk or posedge rst_int) begin
-        if (rst_int) begin
+    always @(posedge slow_clk or posedge rst_slow) begin
+        if (rst_slow) begin
             delay_cnt <= {DELAY_W{1'b1}};
         end else begin
             delay_cnt <= delay_cnt - 1'b1;
@@ -100,8 +109,8 @@ module FourDigitLEDdriver #(
     wire frame_end = (counter == 4'b0000);
     wire [PTR_W-1:0] next_ptr = (ptr == N - 1) ? {PTR_W{1'b0}} : ptr + 1'b1;
 
-    always @(posedge slow_clk or posedge rst_int) begin
-        if (rst_int) begin
+    always @(posedge slow_clk or posedge rst_slow) begin
+        if (rst_slow) begin
             ptr <= {PTR_W{1'b0}};
         end else if (frame_end && delay_done) begin
             ptr <= next_ptr;

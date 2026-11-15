@@ -15,12 +15,12 @@
 \usepackage{graphicx}
 \usepackage{csquotes}
 \usepackage{listings}
-\usepackage{xcolor}
+\usepackage[table]{xcolor}
 \usepackage{tabularx}
 \usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, decorations.pathreplacing}
 \usepackage{colortbl}
 \usepackage{mathtools}
-\usepackage[table]{xcolor}
 \usepackage{hyperref}
 \usepackage{amsmath}
 \usepackage{subcaption}
@@ -48,26 +48,60 @@
 \definecolor{backcolour}{rgb}{0.95,0.95,0.92}
 
 \lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},   
+    backgroundcolor=\color{backcolour},
     commentstyle=\color{codegreen},
     keywordstyle=\color{magenta},
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
     basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
     showstringspaces=false,
-    showtabs=false,                  
+    showtabs=false,
     tabsize=2
 }
 
 \lstset{style=mystyle}
 % END CODE LISTINGS
+
+% FIGURES
+% A simulation screenshot: shows a placeholder box until figures/<file> exists.
+% #1: file name (in figures/), #2: caption, #3: label
+\newcommand{\screenshot}[3]{%
+  \begin{figure}[htbp]
+    \centering
+    \IfFileExists{figures/#1}{%
+      \includegraphics[width=\linewidth]{figures/#1}%
+    }{%
+      \fbox{\parbox[c][4cm][c]{0.9\linewidth}{\centering
+        \textbf{TODO: simulation screenshot}\\[2pt]\texttt{\detokenize{figures/#1}}}}%
+    }
+    \caption{#2}
+    \label{#3}
+  \end{figure}%
+}
+
+% A top-level block diagram, rotated to use the whole page.
+% #1: file name (in figures/), #2: caption, #3: label
+\newcommand{\blockdiagram}[3]{%
+  \begin{sidewaysfigure}
+    \centering
+    \IfFileExists{figures/#1}{%
+      \includegraphics[width=\linewidth]{figures/#1}%
+    }{%
+      \fbox{\parbox[c][6cm][c]{0.9\linewidth}{\centering
+        \textbf{TODO: export the block diagram}\\[2pt]\texttt{\detokenize{figures/#1}}}}%
+    }
+    \caption{#2}
+    \label{#3}
+  \end{sidewaysfigure}%
+}
+% END FIGURES
 
 \begin{document}
 
@@ -77,7 +111,10 @@
 \tableofcontents
 \clearpage
 
+% ======================================================================
 \section{Part A: Decoder}
+% ======================================================================
+
 \subsection{The module}
 The \texttt{LEDdecoder} module receives an input of four bits named \texttt{char}
 and outputs a signal \texttt{LED} of seven bits, each corresponding to a cathode
@@ -86,12 +123,14 @@ of a 7-Segment Display.
 This module is combinational, meaning it does not use
 any memory elements and the output only depends on the current input. This
 can be implemented in Verilog using a combinational \texttt{always} block; that
-is an \texttt{always} block whose sensitivity list doesn't contain the clock signal.
+is an \texttt{always} block whose sensitivity list doesn't contain the clock
+signal~\cite[Combinatorial Always Blocks]{ug901}.
 
 Depending of the value of \texttt{char}, the \texttt{case} statement combinationally
-assigns the seven bit constant of the right hand side to the \texttt{LED} signal.
+assigns the seven bit constant of the right hand side to the \texttt{LED} signal
+(Listing~\ref{lst:decoder}).
 
-\lstinputlisting[language=Verilog]{LEDdecoder.v}
+\lstinputlisting[language=Verilog, caption={The \texttt{LEDdecoder} module.}, label={lst:decoder}]{LEDdecoder.v}
 
 \subsection{Include directive}
 The \texttt{`include} directive inserts the contents of the given file in place,
@@ -99,9 +138,10 @@ before compilation~\cite{ieee1364}. Vivado searches for included files in the
 directory of the including source and in the include search paths of the
 project~\cite{ug901}. The constants are therefore defined as \texttt{`define}
 macros with an include guard, so that the header can be included by several
-modules without redefinition.
+modules without redefinition. Both \texttt{`define} and \texttt{`include}, as
+well as \texttt{`ifndef}, are supported by Vivado synthesis~\cite[Table~23: Verilog Constructs]{ug901}.
 
-\lstinputlisting[language=Verilog]{constants.vh}
+\lstinputlisting[language=Verilog, caption={The 7-segment patterns (\texttt{constants.vh}, abridged).}, label={lst:constants}]{constants.vh}
 
 \subsection{Case statement}
 Since we have an input of four bits, we can only index $2^4 = 16$ different characters.
@@ -113,54 +153,122 @@ some case is accidentally forgotten later.
 The sensitivity list only contains the input \texttt{char}, which, in this case, is equivalent
 to using the "star" operator (\texttt{always @(*)}).
 
+\subsection{Segment polarity}
+The assignment asks for the decoder outputs to have the polarity of the cathode
+signals as seen by the segments, that is \texttt{0} for an unlit and \texttt{1}
+for a lit segment. The patterns of Listing~\ref{lst:constants} are therefore
+\emph{active high}: bit~6 is segment \texttt{a} and bit~0 is segment \texttt{g},
+so \texttt{CHAR\_0 = 7'b1111110} lights every segment except \texttt{g}.
+
+On the Boolean Board, however, a segment is lit when its cathode pin is driven
+\emph{low}. The decoder is kept active high, so that it can be checked directly
+against the assignment, and the inversion is done once, at the top level of the
+driver, where the decoder output is connected to the pins (Section~\ref{sec:b-outputs}).
+The inversion costs no extra logic: synthesis absorbs it into the look-up tables
+that implement the decoder.
+
 \subsection{Timescale}
 The \texttt{`timescale} directive has the form
 \texttt{`timescale} \texttt{<time\_unit>}\texttt{/}\texttt{<time\_precision>}, in this case \texttt{1ns/1ps}.
 The time unit is the unit of all delays in the module (so \texttt{\#5} means
 \SI{5}{\nano\second}), while the time precision is the smallest step to which
-delays are rounded. It only affects simulation and is ignored by synthesis.
+delays are rounded. It only affects simulation and is ignored by
+synthesis~\cite[Table~23: Verilog Constructs]{ug901}.
 The Vivado simulator runs with the finest precision specified among all source
 files of the design~\cite{ug900}. The same timescale is used in all verilog files
 in this project.
 
+\subsection{Simulation}
+The testbench of Listing~\ref{lst:decoder-tb} applies the 16 values of \texttt{char}
+one after the other, every \SI{10}{\nano\second}. Each output pattern was compared against the expected 7-segment character, and
+Figure~\ref{fig:sim-a} shows the resulting waveforms.
+
+\lstinputlisting[language=Verilog, caption={Testbench of the \texttt{LEDdecoder}.}, label={lst:decoder-tb}]{code/LEDdecoder_tb.v}
+
+\screenshot{sim_partA_decoder.png}
+  {Behavioral simulation of the \texttt{LEDdecoder}: every value of \texttt{char}
+   produces the expected active-high segment pattern.}
+  {fig:sim-a}
+
+% ======================================================================
 \section{Part B: Four Digits Driver}
-\subsection{MMCM Instantiation}
+% ======================================================================
+
+\subsection{Top-level structure}
+Figure~\ref{fig:block-b} shows the structure of the driver. The board clock
+(\SI{100}{\mega\hertz}) feeds the MMCM, which produces the slower clock
+\texttt{slow\_clk} (\SI{5}{\mega\hertz}, period \SI{200}{\nano\second}). All
+the logic of the display runs on \texttt{slow\_clk}: a 4-bit counter steps through
+16 states and, from its value, combinational logic selects the active anode and
+the character that is sent to the \texttt{LEDdecoder}. The reset button is
+synchronised and debounced in the \texttt{clk} domain and then released
+synchronously to \texttt{slow\_clk}. The colours of the blocks show the clock
+domain each block belongs to.
+
+\blockdiagram{block_partB.png}
+  {Top-level block diagram of part B. The colour of each block shows its clock domain.}
+  {fig:block-b}
+
+\subsection{MMCM instantiation}
 
 The board provides a \SI{100}{\mega\hertz} clock (period \SI{10}{\nano\second}),
 while the anode and segment signals must stay stable for much longer, because
 of the large capacitance of the LED circuit. Instead of dividing the clock with
 a counter in the fabric, we use a Mixed-Mode Clock Manager (MMCM), a dedicated
-clock management block of the 7~Series devices~\cite{ug472}. The MMCM produces
+clock management block of the 7~Series devices~\cite[Ch.~3: Clock Management Tile]{ug472}. The MMCM produces
 a new, slower clock with a fixed relationship to the input clock. All the sequential
 logic of the driver then runs on this clock, and its outputs change once per clock cycle.
 
-We instantiate the \texttt{MMCME2\_BASE} primitive and use the following
-ports~\cite{ug472}:
+As the assignment suggests, the instantiation was copied from the Vivado
+Language Templates (\emph{Verilog $\rightarrow$ Device Primitive Instantiation
+$\rightarrow$ Artix-7 $\rightarrow$ Clock Components $\rightarrow$ MMCM/PLL
+$\rightarrow$ Base Mixed Mode Clock Manager}). The same templates are listed,
+together with the ports and attributes of every primitive, in the Libraries
+Guide~\cite[Ch.~1: Introduction]{ug953}; the Spartan-7 device of the board belongs to the same
+7~Series family as the Artix-7. A primitive is instantiated like any other
+Verilog module~\cite[Instantiating Pre-Defined Primitives]{ug901}.
+
+\lstinputlisting[language=Verilog, caption={Instantiation of the \texttt{MMCME2\_BASE} primitive.}, label={lst:mmcm}]{MMCM.v}
+
+We instantiate the \texttt{MMCME2\_BASE} primitive (Listing~\ref{lst:mmcm}) and use the following
+ports~\cite[Table~3-1: MMCME2\_BASE Ports]{ug472}, \cite[MMCME2\_BASE]{ug953}:
 \begin{description}
   \item[\texttt{CLKIN1}] The input clock, here the \SI{100}{\mega\hertz} board clock.
   \item[\texttt{CLKFBOUT}, \texttt{CLKFBIN}] The feedback loop. \texttt{CLKFBOUT}
         is connected to \texttt{CLKFBIN}, so that the MMCM can compare the
         feedback clock with the input clock and lock its internal oscillator (VCO).
   \item[\texttt{CLKOUT1}] The output clock used by our design.
-  \item[\texttt{LOCKED}] Goes high when the output clocks are stable. Until then
-        the design is held in reset (\texttt{rst\_int = reset\_db | \textasciitilde locked}).
-  \item[\texttt{RST}] Asynchronous reset of the MMCM, driven by the debounced reset button.
+  \item[\texttt{LOCKED}] Goes high when the MMCM has achieved phase alignment
+        and frequency matching, that is when the output clocks are stable. The
+        MMCM locks automatically after power-up~\cite[MMCME2\_BASE]{ug953}. Until
+        then the design is held in reset (Section~\ref{sec:b-reset}).
+  \item[\texttt{RST}] Asynchronous reset of the MMCM, driven by the debounced
+        reset button. When it is released, the MMCM re-enables itself and locks
+        again~\cite[MMCME2\_BASE]{ug953}.
   \item[\texttt{PWRDWN}] Powers down the MMCM; tied to 0.
 \end{description}
 The remaining outputs (\texttt{CLKOUT0}, \texttt{CLKOUT2}--\texttt{CLKOUT6}
 and the inverted outputs) are left unconnected.
 
 The MMCM first multiplies the input frequency to drive its VCO and then divides
-the VCO frequency separately for each output~\cite{ug472}:
+the VCO frequency separately for each output~\cite[Eq.~3-1, 3-2]{ug472}:
 \begin{equation}
   f_{VCO} = f_{IN} \cdot \frac{M}{D}, \qquad
   f_{OUT} = \frac{f_{VCO}}{O}
 \end{equation}
 where $M$ = \texttt{CLKFBOUT\_MULT\_F}, $D$ = \texttt{DIVCLK\_DIVIDE} and
-$O$ = \texttt{CLKOUT1\_DIVIDE}. The VCO frequency must lie within the range of
-the device (\SIrange{600}{1200}{\mega\hertz} for speed grade $-1$~\cite{ds189}),
-so the clock cannot be divided by 20 directly. We choose $M = 6$, $D = 1$ and
-$O = 120$:
+$O$ = \texttt{CLKOUT1\_DIVIDE}. The VCO frequency must lie within
+\SIrange{600}{1200}{\mega\hertz} for the $-1$ speed grade of our
+device~\cite[Table~37: MMCM Specification]{ds189}, and the output divider is
+limited to $1 \le O \le 128$~\cite[MMCME2\_BASE]{ug953}. A division of the
+\SI{100}{\mega\hertz} clock by 20 is therefore not possible directly, since the
+VCO cannot run at \SI{100}{\mega\hertz}. With $D = 1$ the two limits give
+\begin{equation}
+  f_{VCO} = M \cdot \SI{100}{\mega\hertz} \ge \SI{600}{\mega\hertz}
+  \quad\text{and}\quad
+  f_{VCO} = O \cdot \SI{5}{\mega\hertz} \le 128 \cdot \SI{5}{\mega\hertz} = \SI{640}{\mega\hertz},
+\end{equation}
+so we choose $M = 6$, $D = 1$ and $O = 120$:
 \begin{equation}
   f_{VCO} = \SI{100}{\mega\hertz} \cdot \frac{6}{1} = \SI{600}{\mega\hertz},
   \qquad
@@ -170,9 +278,648 @@ $O = 120$:
 \texttt{CLKIN1\_PERIOD} is set to \SI{10.0}{\nano\second} to inform the tools
 of the input clock period.
 
+\subsection{Reset}
+\label{sec:b-reset}
+The assignment asks for an asynchronous reset in every sequential \texttt{always}
+block, driven by the button \texttt{btn[0]} (pin J2). The reset of the design
+comes from three parts, shown in Figure~\ref{fig:block-b}: the button is first
+synchronised and debounced (\texttt{ResetDebounce}), it is then combined with the
+\texttt{LOCKED} output of the MMCM, and finally it is released synchronously to
+\texttt{slow\_clk} (\texttt{ResetSync}). Listing~\ref{lst:b-reset} shows how these are connected at the top level.
 
+\lstinputlisting[language=Verilog, caption={Generation of the reset of the \texttt{slow\_clk} domain.}, label={lst:b-reset}]{code/B_reset.v}
+
+\subsubsection{Asynchronous reset in Verilog}
+A flip-flop with an asynchronous reset is described by adding the reset to the
+sensitivity list of the \texttt{always} block, next to the clock edge, and by
+testing it first inside the block~\cite[Flip-Flops, Registers, and Latches]{ug901}:
+\begin{lstlisting}[language=Verilog]
+always @(posedge slow_clk or posedge rst_slow) begin
+    if (rst_slow) ...       // asynchronous reset
+    else ...                // clocked behaviour
+end
+\end{lstlisting}
+% Vivado infers \texttt{FDCE} (asynchronous clear) or \texttt{FDPE} (asynchronous
+% preset) flip-flops for such blocks, depending on the reset value~\cite[Flip-Flops, Registers, and Latches]{ug901}.
+% It is worth noting that AMD generally recommends synchronous resets, because
+% they map to more device resources and do not limit the clock
+% frequency~\cite[Synchronous Reset vs.\ Asynchronous Reset]{ug949}. Our design
+% uses no block RAM or DSP resources and runs at only \SI{5}{\mega\hertz}, so the
+% asynchronous reset required by the assignment has no practical cost.
+
+\subsubsection{Holding the design in reset until the MMCM locks}
+The output of the MMCM is not usable before \texttt{LOCKED} goes high, so the
+internal reset of the design is
+\begin{equation}
+  \texttt{rst\_int} = \texttt{reset\_db} \lor \lnot\,\texttt{locked}.
+\end{equation}
+The design is thus in reset at power-up until the MMCM locks, and while the
+button is pressed. Since \texttt{reset\_db} also resets the MMCM, after a press
+of the button the design stays in reset until the MMCM has locked again.
+
+\subsubsection{Reset synchroniser}
+\texttt{rst\_int} is not synchronous to \texttt{slow\_clk}: its release is caused
+by the rising edge of \texttt{LOCKED}, which has no timing relationship with the
+clock edges. If an asynchronous reset is released too close to a clock edge, the
+recovery and removal times of the flip-flops are violated: some flip-flops may
+leave reset one cycle later than others, or even become
+metastable~\cite[Synchronous Reset vs.\ Asynchronous Reset]{ug949}. AMD's
+methodology guide therefore states that the deassertion of an asynchronous reset
+must be synchronised to the clock~\cite[Synchronous Reset vs.\ Asynchronous Reset]{ug949}.
+
+The \texttt{ResetSync} module of Listing~\ref{lst:resetsync} does exactly this.
+Its two flip-flops are set asynchronously as soon as \texttt{rst\_in} goes high,
+so the reset still takes effect immediately, but when \texttt{rst\_in} is
+released a \texttt{0} has to travel through both of them, so \texttt{rst\_out}
+falls on a rising edge of \texttt{slow\_clk}. If the first flip-flop becomes
+metastable, the second one gives it a full clock cycle to settle. The output,
+\texttt{rst\_slow}, is the reset of every flip-flop of the \texttt{slow\_clk}
+domain. Since it is now driven by a flip-flop of the same clock domain,
+Vivado analyses the paths from \texttt{rst\_slow} to the asynchronous reset
+pins with recovery and removal checks, and all of them are met; the
+\texttt{report\_cdc} command also recognises the structure as an asynchronous
+reset synchroniser~\cite[Report CDC]{ug949}.
+
+\lstinputlisting[language=Verilog, caption={The \texttt{ResetSync} module.}, label={lst:resetsync}]{code/ResetSync.v}
+
+The two flip-flops carry the \texttt{ASYNC\_REG} attribute. This attribute tells
+Vivado that the register belongs to a synchronisation chain: synthesis does not
+optimise it away, and implementation places the registers of the chain close
+together, to give a metastable value as much time as possible to settle~\cite[ASYNC\_REG]{ug901}.
+Attributes are written in Verilog between \texttt{(*} and \texttt{*)} in front of
+the declaration they apply to.
+
+\subsubsection{Synchronising and debouncing the button}
+\label{sec:b-debounce}
+The reset button is asynchronous to the board clock and its contacts bounce
+for a few milliseconds when it is pressed or released. The \texttt{ResetDebounce}
+module (Listing~\ref{lst:resetdebounce}) runs on the \SI{100}{\mega\hertz}
+\texttt{clk} and solves both problems:
+\begin{itemize}
+  \item A two flip-flop synchroniser (\texttt{sync\_0}, \texttt{sync\_1}, again
+        marked with \texttt{ASYNC\_REG}) brings the button into the \texttt{clk}
+        domain.
+  \item A counter measures for how long the synchronised input has been different
+        from the output. The output follows the input only when the input has stayed
+        different for \texttt{COUNTER\_MAX}~$+\,1$ consecutive cycles
+        (\SI{20}{\milli\second}). Every bounce back to the value of the output
+        clears the counter, so a bouncing press produces a single clean edge.
+\end{itemize}
+Figure~\ref{fig:fsm-debounce} shows this behaviour as a state graph. The states
+are an abstraction of the registers: \texttt{out} distinguishes the left from the
+right column, and \texttt{sync\_1 != out} tells whether the counter is counting.
+The same module, with an asynchronous reset added, is used for the step button of
+part~C (Section~\ref{sec:c-step}).
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      >={Stealth[length=2mm]},
+      st/.style={draw, rounded corners, align=center, minimum width=3.4cm,
+                 minimum height=1.2cm, font=\small},
+      lbl/.style={font=\scriptsize, align=center}]
+    \node[st, fill=blue!8]   (s0) at (0, 0)   {\textbf{Stable 0}\\\texttt{out = 0}, counter $= 0$};
+    \node[st, fill=orange!12] (c0) at (7, 0)   {\textbf{Counting up}\\\texttt{out = 0}, \texttt{sync\_1 = 1}};
+    \node[st, fill=blue!8]   (s1) at (7, -4)  {\textbf{Stable 1}\\\texttt{out = 1}, counter $= 0$};
+    \node[st, fill=orange!12] (c1) at (0, -4)  {\textbf{Counting down}\\\texttt{out = 1}, \texttt{sync\_1 = 0}};
+
+    \draw[<-] (s0.north) -- ++(0, 0.7) node[above, lbl] {power-up (initial values)};
+
+    \draw[->] ([yshift=2mm]s0.east) -- node[above, lbl] {\texttt{sync\_1 = 1}} ([yshift=2mm]c0.west);
+    \draw[->] ([yshift=-2mm]c0.west) -- node[below, lbl] {\texttt{sync\_1 = 0} (bounce) / counter $\leftarrow 0$} ([yshift=-2mm]s0.east);
+    \draw[->] (c0) -- node[right, lbl] {counter $\ge$ \texttt{COUNTER\_MAX} /\\ \texttt{out} $\leftarrow 1$, counter $\leftarrow 0$} (s1);
+    \draw[->] ([yshift=-2mm]s1.west) -- node[below, lbl] {\texttt{sync\_1 = 0}} ([yshift=-2mm]c1.east);
+    \draw[->] ([yshift=2mm]c1.east) -- node[above, lbl] {\texttt{sync\_1 = 1} (bounce) / counter $\leftarrow 0$} ([yshift=2mm]s1.west);
+    \draw[->] (c1) -- node[left, lbl] {counter $\ge$ \texttt{COUNTER\_MAX} /\\ \texttt{out} $\leftarrow 0$, counter $\leftarrow 0$} (s0);
+
+    \draw[->] (c0.north east) .. controls +(1.2, 1.2) and +(1.8, 0) .. (c0.east)
+      node[pos=0.35, right, lbl] {counter $\leftarrow$ counter $+ 1$};
+    \draw[->] (c1.south west) .. controls +(-1.2, -1.2) and +(-1.8, 0) .. (c1.west)
+      node[pos=0.35, left, lbl] {counter $\leftarrow$ counter $+ 1$};
+  \end{tikzpicture}
+  \caption{State graph of the debouncer (\texttt{ResetDebounce} and \texttt{Debounce}).
+           \texttt{out} changes only after the synchronised input has been stable
+           for \texttt{COUNTER\_MAX}~$+\,1$ cycles (\SI{20}{\milli\second}).}
+  \label{fig:fsm-debounce}
+\end{figure}
+
+\lstinputlisting[language=Verilog, caption={The \texttt{ResetDebounce} module.}, label={lst:resetdebounce}]{code/ResetDebounce.v}
+
+\paragraph{Parameters.}
+The debounce time and the clock frequency are \texttt{parameter}s of the module,
+so the same code can be reused with other values; every instance can override them
+with the \texttt{\#(...)} syntax~\cite[Sec.~12.2]{ieee1364}, \cite[Verilog Parameters]{ug901}.
+The size of the counter is computed from them as \texttt{localparam}s, which,
+unlike parameters, cannot be overridden~\cite[Sec.~4.10.2]{ieee1364}. The width
+uses the \texttt{\$clog2} system function, which returns the ceiling of the
+base-2 logarithm of its argument~\cite[Sec.~17.11.1]{ieee1364}; for
+$\texttt{COUNTER\_MAX} = 2\,000\,000$ it gives a 21-bit counter. Vivado's table of
+supported system functions lists \texttt{\$clog2} as supported, with a note
+that refers to SystemVerilog~\cite[Table~24: System Tasks and Status]{ug901}; it is
+however part of Verilog-2005, and Vivado~2025.2 synthesised it in our Verilog
+files without any warning.
+
+\paragraph{Initial values instead of a reset.}
+\texttt{ResetDebounce} produces the reset, so it cannot be reset itself. Its
+registers are instead given an initial value in their declaration, for example
+\texttt{reg sync\_0 = 1'b0}~\cite[Sec.~6.2.1]{ieee1364}. Vivado synthesis
+supports such initial values: the value is stored as the \texttt{INIT} attribute
+of the flip-flop and is loaded at power-up, when the global set/reset (GSR)
+signal of the device is released at the end of
+configuration~\cite[Initial Values]{ug901}, \cite[When and Where to Use a Reset]{ug949}.
+Even without an initial value the flip-flops of an AMD FPGA start from a known
+value (zero for most primitives)~\cite[When and Where to Use a Reset]{ug949}, but
+writing it explicitly documents the intended state and also makes the behavioural
+simulation start from it instead of \texttt{x}.
+
+\subsection{Anode driving}
+The anodes are driven by a 4-bit down counter, initialised to \texttt{1111} by
+the reset (Listing~\ref{lst:b-counter}). As the assignment suggests, the counter
+is used as a finite state machine: every value is a state, the next state is
+always \texttt{counter - 1}, and the outputs depend only on the state (a Moore
+machine). Figure~\ref{fig:fsm-scan} shows the state graph. Four of the states
+drive one anode low each; the other twelve keep all anodes high, so two anodes
+are never low at the same time and there are three \enquote{off} states between
+two digits.
+
+\lstinputlisting[language=Verilog, caption={The scan counter.}, label={lst:b-counter}]{code/B_counter.v}
+
+The anode outputs are decoded from the counter by a combinational
+\texttt{always @(*)} block with a \texttt{case} statement
+(Listing~\ref{lst:b-anodes}). The \texttt{@(*)} sensitivity list includes
+every signal read by the block~\cite[Sec.~9.7.5]{ieee1364}, and the
+\texttt{default} branch assigns the output for all the remaining
+states~\cite[Case Statements]{ug901}. The output is also assigned before the
+\texttt{case}, so that it has a value on every path through the block and no
+latch is inferred.
+
+\lstinputlisting[language=Verilog, caption={Anode decoding.}, label={lst:b-anodes}]{code/B_anodes.v}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      >={Stealth[length=1.8mm]},
+      st/.style={circle, draw, minimum size=12mm, inner sep=0pt, align=center, font=\scriptsize}]
+    % value / active anode / fill colour (= character group) / border width
+    \foreach \v/\an/\col/\lw [count=\i from 0] in {
+        1111//blue!10/0.4pt,   1110/AN3/blue!10/1.6pt,   1101//blue!10/0.4pt,   1100//blue!10/0.4pt,
+        1011//green!12/0.4pt,  1010/AN2/green!12/1.6pt,  1001//green!12/0.4pt,  1000//green!12/0.4pt,
+        0111//orange!15/0.4pt, 0110/AN1/orange!15/1.6pt, 0101//orange!15/0.4pt, 0100//orange!15/0.4pt,
+        0011//red!10/0.4pt,    0010/AN0/red!10/1.6pt,    0001//red!10/0.4pt,    0000//red!10/0.4pt} {
+      \node[st, fill=\col, line width=\lw] (s\i) at ({90 - 22.5*\i}:4.3cm)
+        {\texttt{\v}\\\textbf{\an}};
+    }
+    \foreach \i in {0,...,15} {
+      \pgfmathtruncatemacro{\j}{mod(\i + 1, 16)}
+      \draw[->] (s\i) -- (s\j);
+    }
+    \draw[<-] (s0.north) -- ++(0, 0.8) node[above, font=\scriptsize] {\texttt{rst\_slow}};
+    \node[font=\scriptsize, align=center] at (56.25:2.55cm)  {\texttt{counter[3:2] = 11}\\data of AN3};
+    \node[font=\scriptsize, align=center] at (-33.75:2.55cm) {\texttt{counter[3:2] = 10}\\data of AN2};
+    \node[font=\scriptsize, align=center] at (-123.75:2.55cm){\texttt{counter[3:2] = 01}\\data of AN1};
+    \node[font=\scriptsize, align=center] at (146.25:2.55cm) {\texttt{counter[3:2] = 00}\\data of AN0};
+  \end{tikzpicture}
+  \caption{State graph of the scan counter. Every transition happens on a rising
+           edge of \texttt{slow\_clk} (every \SI{200}{\nano\second}). The states
+           with a thick border drive the anode written inside them low; all
+           others keep the four anodes high. The colour shows which character
+           is on the segments (\texttt{counter[3:2]}).}
+  \label{fig:fsm-scan}
+\end{figure}
+
+\subsection{Character selection and setup time}
+The character on the segments is selected with the two most significant bits of
+the counter (Listing~\ref{lst:b-char}). Each value of \texttt{counter[3:2]}
+covers four consecutive states, and the anode of the corresponding digit is low
+only in the second of them. As the timing diagram of Figure~\ref{fig:timing-b}
+shows, the data of a digit therefore appear one step (\SI{200}{\nano\second})
+before its anode goes low (setup), stay constant while the anode is low, and
+change two steps after the anode returns high (hold). This gives the safety
+margin of at least one step that the assignment asks for, both before and after
+each digit.
+
+\lstinputlisting[language=Verilog, caption={Selection of the character of each digit (part B).}, label={lst:b-char}]{code/B_char.v}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[x=1.45cm, y=1cm, font=\scriptsize]
+    \def\hi{0.25} \def\lo{-0.25}
+    % row labels
+    \node[left] at (0, 4) {\texttt{slow\_clk}};
+    \node[left] at (0, 3) {\texttt{counter}};
+    \node[left] at (0, 2) {\texttt{char}};
+    \node[left] at (0, 1) {\texttt{an3}};
+    \node[left] at (0, 0) {\texttt{an2}};
+    % clock: a rising edge at every column boundary
+    \foreach \k in {0,...,7} {
+      \draw (\k, 4 + \lo) -- (\k, 4 + \hi) -- (\k + 0.5, 4 + \hi) -- (\k + 0.5, 4 + \lo) -- (\k + 1, 4 + \lo);
+    }
+    % buses
+    \foreach \xa/\xb/\yy/\txt in {0/1/3/0001, 1/2/3/0000, 2/3/3/1111, 3/4/3/1110, 4/5/3/1101,
+                             5/6/3/1100, 6/7/3/1011, 7/8/3/1010,
+                             0/2/2/{3 (AN0)}, 2/6/2/{0 (AN3)}, 6/8/2/{1 (AN2)}} {
+      \draw (\xa, \yy) -- (\xa + 0.08, \yy + \hi) -- (\xb - 0.08, \yy + \hi) -- (\xb, \yy)
+            -- (\xb - 0.08, \yy + \lo) -- (\xa + 0.08, \yy + \lo) -- cycle;
+      \node at ({(\xa + \xb) / 2}, \yy) {\texttt{\txt}};
+    }
+    % anodes (active low)
+    \draw[thick] (0, 1 + \hi) -- (3, 1 + \hi) -- (3, 1 + \lo) -- (4, 1 + \lo) -- (4, 1 + \hi) -- (8, 1 + \hi);
+    \draw[thick] (0, 0 + \hi) -- (7, 0 + \hi) -- (7, 0 + \lo) -- (8, 0 + \lo);
+    % guides and annotations
+    \foreach \x in {2, 3, 4, 6} \draw[gray, densely dotted] (\x, 4.4) -- (\x, -0.5);
+    \draw[decorate, decoration={brace, mirror, amplitude=4pt}] (2, -0.6) -- (3, -0.6)
+      node[midway, below=4pt] {setup: 1 step};
+    \draw[decorate, decoration={brace, mirror, amplitude=4pt}] (4, -0.6) -- (6, -0.6)
+      node[midway, below=4pt] {hold: 2 steps};
+  \end{tikzpicture}
+  \caption{Timing of the data and the anodes around digit AN3. The character of
+           AN3 is on the segments from state \texttt{1111} to \texttt{1100},
+           while AN3 is low only in state \texttt{1110}.}
+  \label{fig:timing-b}
+\end{figure}
+
+\subsection{Outputs}
+\label{sec:b-outputs}
+The anode mask and the inverted decoder output are connected to the output ports
+with continuous assignments (Listing~\ref{lst:b-outputs}). The left-hand side of
+each assignment is a \emph{concatenation} of output ports, so the bits of the
+right-hand side are distributed to the ports from the most to the least
+significant one (for example \texttt{an3 = anode\_oc\_mask[3]})~\cite[Sec.~5.1.14, Sec.~6.1]{ieee1364}.
+The inversion \texttt{\textasciitilde LED} turns the active-high decoder output
+into the active-low cathode signals of the board, and the decimal point is kept
+off by driving it high.
+
+\lstinputlisting[language=Verilog, caption={Output assignments.}, label={lst:b-outputs}]{code/B_outputs.v}
+
+\subsection{Constraints (XDC)}
+Listing~\ref{lst:xdc} shows the constraints of the design. Each
+\texttt{set\_property} line assigns a top-level port to a package pin of the
+FPGA and selects its I/O standard (3.3\,V LVCMOS). The \texttt{create\_clock}
+command defines the board clock as a primary clock with a period of
+\SI{10}{\nano\second}~\cite[Primary Clocks]{ug903}. The \texttt{step\_btn} line
+(J5) is used only in part~C.
+
+No constraint is needed for \texttt{slow\_clk}: Vivado automatically creates a
+generated clock on every output of an MMCM, from the primary clock and the
+attributes of the MMCM~\cite[Automatically Derived Clocks]{ug903}. The clock
+report of the implemented design indeed lists \texttt{slow\_clk} with a period
+of \SI{200}{\nano\second}, derived from \texttt{CLKOUT1}, and timing is met
+in all three parts.
+
+\lstinputlisting[language=tcl, caption={Constraints of the design (\texttt{constraints.xdc}).}, label={lst:xdc}]{code/constraints.xdc}
+
+\subsection{Simulation}
+\label{sec:b-sim}
+The design was first simulated at the register transfer level (behavioural
+simulation) and then after implementation, as a timing
+simulation~\cite[Simulation Flow]{ug900}. The behavioural simulation also includes
+the \texttt{MMCME2\_BASE} simulation model of the \texttt{UNISIM} library, so the
+clock division and the \texttt{LOCKED} output are simulated as well. The
+post-implementation simulation uses the netlist of the placed and routed design,
+made of device primitives (look-up tables, flip-flops, the MMCM), together with
+the delays of the cells and of the routing, which Vivado writes in an SDF file;
+it is the closest emulation of the design running on the
+device~\cite[Post-Implementation Simulation]{ug900}. The \texttt{glbl.v} module
+that Vivado adds to the netlist simulation pulses the global set/reset for the
+first \SI{100}{\nano\second}~\cite[Global Set and Reset and Global 3-State Signals in Verilog]{ug900},
+which loads the initial values of the flip-flops, as at the end of the FPGA
+configuration.
+
+In the timing simulation the anode and segment outputs show short glitches, of
+the order of a nanosecond, when several bits of the counter change at the same
+time: the outputs are decoded combinationally from the counter, and the bits of
+the counter reach the look-up tables with slightly different delays. These pulses
+are far too short to have any visible effect on the LEDs, whose signals must stay
+stable for hundreds of nanoseconds; they could be removed by registering the
+outputs.
+
+The testbench (Listing~\ref{lst:b-tb}) only generates the \SI{100}{\mega\hertz}
+clock and keeps the reset low. Figures~\ref{fig:sim-b-behav} and
+\ref{fig:sim-b-synth} show the result: after the MMCM locks, the anodes go low
+one at a time, in the order AN3, AN2, AN1, AN0, and the segments show
+\texttt{0123}.
+
+\lstinputlisting[language=Verilog, caption={Testbench of part B.}, label={lst:b-tb}]{code/B_tb.v}
+
+\screenshot{sim_partB_behav.png}
+  {Behavioural simulation of part B.}
+  {fig:sim-b-behav}
+
+\screenshot{sim_partB_postimpl.png}
+  {Post-implementation timing simulation of part B.}
+  {fig:sim-b-synth}
+
+% ======================================================================
 \section{Part C: Message Rotation Using a Button}
+% ======================================================================
+
+\subsection{Overview}
+Part C replaces the constant characters of part B with a message of
+16 characters, stored in a small memory. A pointer register holds the position
+of the message that is shown on the leftmost digit, and every press of the button
+\texttt{btn[1]} (pin J5) moves the message one character to the left.
+Figure~\ref{fig:block-c} shows the new structure. Compared to part B, part C
+adds:
+\begin{itemize}
+  \item the \texttt{step\_btn} input and its debouncer (\texttt{stepDebounce}),
+  \item the message memory,
+  \item the pointer register, updated at the end of each scan (\texttt{frame\_end}),
+  \item the computation of the memory address of each digit (\texttt{Index}).
+\end{itemize}
+
+\blockdiagram{block_partC.png}
+  {Top-level block diagram of part C.}
+  {fig:block-c}
+
+\subsection{Parameters}
+The message and its length are parameters of the top-level module
+(Listing~\ref{lst:c-header}), so another message can be shown without changing
+the code, either by changing the default value or by overriding it at the
+instantiation~\cite[Sec.~12.2]{ieee1364}, \cite[Verilog Parameters]{ug901}. The
+message is given as a single $4N$-bit vector, written as a hexadecimal number with
+the first character in the most significant bits. The width of the pointer is
+derived from the length of the message with \texttt{\$clog2}.
+\texttt{SLOW\_CLK\_FREQ\_HZ} computes the frequency of \texttt{slow\_clk} from the
+same constants that configure the MMCM, and it is used to size the counter of the
+step debouncer.
+
+\lstinputlisting[language=Verilog, caption={Parameters of the top-level module of part C.}, label={lst:c-header}]{code/C_header.v}
+
+\subsection{Message memory}
+As the assignment suggests, the message is stored in an array of registers,
+\texttt{reg [3:0] message [0:N-1]}, that is $N$ words of 4~bits
+(Listing~\ref{lst:c-message}). Vivado supports such arrays of \texttt{reg}
+and \texttt{wire}~\cite[Arrays of Reg and Wire]{ug901}. The memory is filled
+from the parameter by a \texttt{for} loop in an \texttt{initial} block. Each
+iteration selects one character with an \emph{indexed part-select}: the
+expression \texttt{MESSAGE[4*(N-1-i) +: 4]} selects the 4~bits that start at bit
+\texttt{4*(N-1-i)} and go upwards~\cite[Sec.~5.2.1]{ieee1364}, so
+\texttt{message[0]} receives the most significant (first) character.
+
+\lstinputlisting[language=Verilog, caption={The message memory.}, label={lst:c-message}]{code/C_message.v}
+
+Since the memory is never written, synthesis implements it as a read-only memory
+in look-up tables: the implemented design of part C contains no flip-flops for the
+message.
+
+\paragraph{Initialisation with an \texttt{initial} block.}
+\texttt{initial} blocks are mostly used in testbenches, and the synthesis guide
+states in general that synthesis ignores them~\cite[Blocks]{ug901}. The
+initialisation of memories is the exception: the same guide describes exactly this
+coding style, a \texttt{for} loop in an \texttt{initial} block, for the initial
+contents of a RAM~\cite[Initializing RAM Contents]{ug901}. Vivado evaluates the
+loop during synthesis, and the resulting values become part of the configuration of
+the FPGA, which is loaded at power-up together with the initial values of the
+flip-flops~\cite[When and Where to Use a Reset]{ug949}. We verified this in the
+post-implementation simulation, where the message is read correctly from the netlist.
+
+This technique relies on the FPGA being configured, so it is not portable to an
+ASIC: there, flip-flops and memories have no defined value at power-up, and ASIC
+synthesis tools ignore \texttt{initial} blocks. A portable alternative would be to
+load the message in the reset branch of a clocked \texttt{always} block, but this
+would turn the memory into up to $4N = 64$ flip-flops, because their value before
+the first reset differs from the reset value and synthesis cannot replace them by
+constants, and the message would only be valid after a reset. Since the message is
+never written, it is in fact a read-only memory, and the portable description of a
+ROM is a combinational one, for example an array of \texttt{wire}s assigned from
+the parameter, which needs no initialisation at all. We kept the \texttt{reg}
+array of the assignment, since the design targets only the FPGA.
+
+\subsection{Step button}
+\label{sec:c-step}
+The step button is debounced by the \texttt{Debounce} module
+(Listing~\ref{lst:debounce}), which is the debouncer of
+Section~\ref{sec:b-debounce} with two differences:
+\begin{itemize}
+  \item It runs on \texttt{slow\_clk}, the clock of the logic that uses its output.
+        The button is asynchronous to every clock of the design, so it is enough to
+        synchronise it once, directly to the clock where it is used. The
+        \texttt{CLK\_FREQ\_HZ} parameter of the instance is therefore set to
+        \SI{5}{\mega\hertz} (\texttt{SLOW\_CLK\_FREQ\_HZ}), and \SI{20}{\milli\second}
+        correspond to $100\,000$ cycles.
+  \item It has an asynchronous reset, \texttt{rst\_slow}, like every other register of
+        the \texttt{slow\_clk} domain.
+\end{itemize}
+
+Listing~\ref{lst:c-step} shows the instance of the debouncer in the top-level module.
+
+\lstinputlisting[language=Verilog, caption={Instance of the step debouncer.}, label={lst:c-step}]{code/C_step.v}
+
+\lstinputlisting[language=Verilog, caption={The \texttt{Debounce} module.}, label={lst:debounce}]{code/Debounce.v}
+
+\subsection{Pointer register}
+The pointer \texttt{ptr} is the address of the character shown on the leftmost
+digit (AN3). It is updated by the \texttt{always} block of Listing~\ref{lst:c-ptr}:
+\begin{itemize}
+  \item \textbf{Edge detection.} \texttt{step\_prev} holds the previous value of the
+        debounced button. The condition \texttt{step\_db \&\& !step\_prev} is true
+        only once per press, when the button goes from released to pressed, so a
+        long press moves the message by one character only.
+  \item \textbf{Update at the end of a scan.} The pointer, and \texttt{step\_prev},
+        change only when \texttt{frame\_end} is high, that is in state \texttt{0000},
+        the last state of a scan. If the pointer changed in the middle of a scan,
+        that scan would show some digits from the old position of the message and
+        some from the new one. At the edge where the pointer changes, the counter
+        goes to \texttt{1111}, where all anodes are off and the data of AN3 are
+        computed with the new pointer, one step before AN3 turns on. A scan lasts
+        $16 \times \SI{200}{\nano\second} = \SI{3.2}{\micro\second}$, while the
+        debounced button stays stable for at least \SI{20}{\milli\second}, so
+        sampling the button only once per scan never misses a press.
+  \item \textbf{Wrap-around.} \texttt{next\_ptr} returns to 0 after $N-1$. The
+        comparison is needed because $N$ is not necessarily a power of two, so the
+        natural overflow of the register cannot be relied upon.
+\end{itemize}
+
+\lstinputlisting[language=Verilog, caption={The pointer register of part C.}, label={lst:c-ptr}]{code/C_ptr.v}
+
+\subsection{Address of each digit}
+The four digits show the characters at positions \texttt{ptr}, \texttt{ptr+1},
+\texttt{ptr+2} and \texttt{ptr+3} of the message, modulo $N$. The address is
+computed combinationally from the pointer and the counter (Listing~\ref{lst:c-index}):
+\begin{itemize}
+  \item \texttt{digit = \textasciitilde counter[3:2]} is the distance of the
+        scanned digit from the left: the counter counts down, so the inversion
+        turns \texttt{11} (AN3) into 0 and \texttt{00} (AN0) into 3.
+  \item \texttt{sum = ptr + digit} is one bit wider than the pointer, so that
+        \texttt{ptr + 3} cannot overflow before the modulo is taken.
+  \item \texttt{msg\_index} is \texttt{sum} modulo $N$. Since
+        $\texttt{ptr} \le N-1$ and $\texttt{digit} \le 3$, it holds that
+        $\texttt{sum} \le N+2 < 2N$, so a single comparison and subtraction is
+        enough and no divider is needed.
+\end{itemize}
+
+\lstinputlisting[language=Verilog, caption={Address of the character of each digit.}, label={lst:c-index}]{code/C_index.v}
+
+Table~\ref{tab:c-index} shows these values for every group of counter states, for
+two positions of the pointer. With $\texttt{ptr} = 14$ the digits AN1 and AN0 go
+past the end of the message ($\texttt{sum} \ge 16$), so the subtraction brings
+them back to its start and the display shows \texttt{EF01}.
+
+Note that for $N = 16$ the subtraction happens to be equivalent to dropping the
+most significant bit of \texttt{sum}, because 16 is a power of two. For any other
+length, for example $N = 10$ with $\texttt{ptr} = 8$, the addresses 10 and 11
+would point outside the memory, and only the subtraction makes the display show
+the correct \texttt{8901}.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \begin{tabular}{cccc|ccc|ccc}
+    \toprule
+    & & & & \multicolumn{3}{c|}{$\texttt{ptr} = 0$} & \multicolumn{3}{c}{$\texttt{ptr} = 14$} \\
+    \texttt{counter} & anode & \texttt{counter[3:2]} & \texttt{digit}
+      & \texttt{sum} & \texttt{msg\_index} & char
+      & \texttt{sum} & \texttt{msg\_index} & char \\
+    \midrule
+    \texttt{1111}--\texttt{1100} & AN3 & \texttt{11} & 0 & 0 & 0 & \texttt{0} & 14 & 14 & \texttt{E} \\
+    \texttt{1011}--\texttt{1000} & AN2 & \texttt{10} & 1 & 1 & 1 & \texttt{1} & 15 & 15 & \texttt{F} \\
+    \texttt{0111}--\texttt{0100} & AN1 & \texttt{01} & 2 & 2 & 2 & \texttt{2} & 16 & $16 - 16 = 0$ & \texttt{0} \\
+    \texttt{0011}--\texttt{0000} & AN0 & \texttt{00} & 3 & 3 & 3 & \texttt{3} & 17 & $17 - 16 = 1$ & \texttt{1} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Address of the character of each digit for two values of the pointer
+           ($N = 16$, \texttt{MESSAGE = 64'h0123456789ABCDEF}).}
+  \label{tab:c-index}
+\end{table}
+
+Table~\ref{tab:c-rotation} shows how the display changes with consecutive
+presses around the end of the message: the pointer itself wraps from 15 to 0
+(\texttt{next\_ptr}), and while it is in one of the last three positions the
+addresses of the right digits wrap as well (\texttt{msg\_index}).
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \begin{tabular}{cc}
+    \toprule
+    \texttt{ptr} & AN3 AN2 AN1 AN0 \\
+    \midrule
+    12 & \texttt{C D E F} \\
+    13 & \texttt{D E F 0} \\
+    14 & \texttt{E F 0 1} \\
+    15 & \texttt{F 0 1 2} \\
+    0  & \texttt{0 1 2 3} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Rotation of the message around its end.}
+  \label{tab:c-rotation}
+\end{table}
+
+\subsection{Simulation}
+The testbench of part C (Listing~\ref{lst:c-tb}) waits for the MMCM to lock and
+then presses the step button 16 times, so that the message makes a full rotation
+and returns to its start. To keep the simulation short, the testbench overrides
+the debounce parameters of the design: with \texttt{DEBOUNCE\_TIME\_MS = 1} and
+\texttt{CLK\_FREQ\_HZ = 400\_000} both debouncers need about
+\SI{4}{\micro\second} instead of \SI{20}{\milli\second}. These two parameters only
+size the debounce counters; the clock of the simulation is still
+\SI{100}{\mega\hertz}.
+
+The parameters of a synthesised netlist are fixed and cannot be overridden by the
+testbench. The project therefore has a second pair of runs, \texttt{synth\_sim}
+and \texttt{impl\_sim}, used only for simulation: they synthesise the design with
+the shorter values, passed to \texttt{synth\_design} as
+generics~\cite[Verilog Parameters]{ug901}, \cite[Running Synthesis with Tcl]{ug901}.
+The bitstream is still generated by the original runs, with the real values. The
+post-implementation simulation uses the simulation set \texttt{sim\_post}, which
+compiles the same testbench with the macro \texttt{POST\_SYNTH} defined; the
+\texttt{`ifdef} of Listing~\ref{lst:c-tb} then instantiates the design without
+overriding its parameters.
+
+In a timing simulation, an asynchronous input that changes too close to a clock
+edge violates the setup or hold check of the first flip-flop of its synchroniser,
+and the simulation model of the flip-flop outputs \texttt{x}, which would then
+propagate through the design. On the board the flip-flop would simply settle to
+\texttt{0} or \texttt{1} and the second flip-flop would hide any metastability. To
+keep the waveforms free of \texttt{x}, the testbench changes \texttt{step\_btn}
+only on multiples of \SI{200}{\nano\second}, away from the edges of
+\texttt{slow\_clk}. Figures~\ref{fig:sim-c-behav} and \ref{fig:sim-c-synth} show
+the results.
+
+\lstinputlisting[language=Verilog, caption={Testbench of part C.}, label={lst:c-tb}]{code/C_tb.v}
+
+\screenshot{sim_partC_behav.png}
+  {Behavioural simulation of part C: after every press of \texttt{step\_btn} the
+   debounced \texttt{step\_db} rises, \texttt{ptr} increases by one at the end of
+   the current scan, and the message moves one character to the left.}
+  {fig:sim-c-behav}
+
+\screenshot{sim_partC_postimpl.png}
+  {Post-implementation timing simulation of part C.}
+  {fig:sim-c-synth}
+
+% ======================================================================
 \section{Part D: Message Rotation Using a Delay}
+% ======================================================================
+
+\subsection{Overview}
+In part D the message moves by one character every \SI{1.68}{\second}, without
+any button. The design is the one of part C with the step button and its
+debouncer removed and a delay counter added (Figure~\ref{fig:block-d}). The
+message memory, the address computation and the pointer wrap-around are
+unchanged.
+
+\blockdiagram{block_partD.png}
+  {Top-level block diagram of part D.}
+  {fig:block-d}
+
+\subsection{Delay counter}
+As the assignment suggests, the delay is measured by a 23-bit counter of
+\texttt{slow\_clk} cycles (Listing~\ref{lst:d-delay}); its width is the parameter
+\texttt{DELAY\_W}. The counter counts down from all ones and wraps from 0 back
+to all ones by itself, so no comparison is needed to restart it.
+\texttt{delay\_done} is high for one cycle, when the counter is 0, once every
+\begin{equation}
+  2^{23} \cdot T_{\texttt{slow\_clk}} = 8\,388\,608 \cdot \SI{200}{\nano\second}
+  \approx \SI{1.68}{\second}.
+\end{equation}
+
+\lstinputlisting[language=Verilog, caption={Delay counter and pointer register of part D.}, label={lst:d-delay}]{code/D_delay.v}
+
+\subsection{Pointer update}
+As in part C, the pointer must change only at the end of a scan. In part D this
+comes for free: the delay counter and the scan counter are reset to all ones by
+the same reset, and both count down on every edge of \texttt{slow\_clk}, so the
+four least significant bits of \texttt{delay\_cnt} are always equal to
+\texttt{counter}. Whenever \texttt{delay\_cnt} is 0, \texttt{counter} is 0 too,
+that is \texttt{delay\_done} is always high together with \texttt{frame\_end}.
+The condition \texttt{frame\_end \&\& delay\_done} is kept anyway, to state the
+intention explicitly.
+
+This relies on two conditions:
+\begin{itemize}
+  \item $\texttt{DELAY\_W} \ge 4$, so that the delay counter contains the scan
+        counter.
+  \item All the flip-flops of both counters leave reset on the same clock edge.
+        This is guaranteed by the reset synchroniser of Section~\ref{sec:b-reset}.
+        Without it, a release of the reset close to a clock edge could start
+        one counter a cycle later than the other; \texttt{delay\_done} would then
+        never coincide with \texttt{frame\_end} again, and the message would stop
+        moving until the next reset.
+\end{itemize}
+
+\subsection{Simulation}
+\SI{1.68}{\second} would require $8.4 \times 10^{8}$ cycles of the board clock per
+step, so, as the assignment suggests, the design is simulated with a shorter
+counter. The testbench (Listing~\ref{lst:d-tb}) sets \texttt{DELAY\_W = 7},
+that is one step every $2^7 \cdot \SI{200}{\nano\second} = \SI{25.6}{\micro\second}$,
+and runs for 16 steps, a full rotation of the message. As in part C, the
+post-implementation simulation uses the runs \texttt{synth\_sim} and
+\texttt{impl\_sim}, where the design is synthesised with \texttt{DELAY\_W = 7}, and
+the simulation set \texttt{sim\_post}.
+Figures~\ref{fig:sim-d-behav} and \ref{fig:sim-d-synth} show the results.
+
+\lstinputlisting[language=Verilog, caption={Testbench of part D.}, label={lst:d-tb}]{code/D_tb.v}
+
+\screenshot{sim_partD_behav.png}
+  {Behavioural simulation of part D (\texttt{DELAY\_W = 7}): \texttt{delay\_done}
+   pulses every \SI{25.6}{\micro\second}, at the same time as \texttt{frame\_end},
+   and \texttt{ptr} increases by one.}
+  {fig:sim-d-behav}
+
+\screenshot{sim_partD_postimpl.png}
+  {Post-implementation timing simulation of part D.}
+  {fig:sim-d-synth}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

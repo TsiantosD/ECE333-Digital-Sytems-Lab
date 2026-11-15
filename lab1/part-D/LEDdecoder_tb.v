@@ -30,8 +30,4 @@ module LEDdecoder_tb;
         .char(char),
         .LED (LED)
     );
-
-    always @(*) begin
-        $display("char: %b LED: %b", char, LED);
-    end
 endmodule
